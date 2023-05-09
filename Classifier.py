@@ -10,36 +10,65 @@ def get_gray_scaled_image(img):
 def get_resized_image(img):
     return cv2.resize(img, (28,28))
 
-def get_predicted_label(img):
-    model = tf.keras.models.load_model("NN_Digits_Classifier")
-    return np.argmax(model.predict(img))
+def get_model(is_cnn=True):
+    if is_cnn is True:
+        model = tf.keras.models.load_model("model/cnn")
+    else:
+        model = tf.keras.models.load_model("NN_Digits_Classifier")
+    return model
+
+class hw_digits_classifier():
+
+    def __init__(self):
+        self.model_nn = get_model(is_cnn=False)
+        self.model_cnn = get_model(is_cnn=True)
+
+    def preprocess_image(self, img):
+        img = get_gray_scaled_image(img)
+        img = get_resized_image(img)
+        
+        return img
+        
+    def get_predicted_label(self, img, is_cnn=True):
+        
+        if is_cnn is False: #Flatten
+            img = img.reshape(28*28) 
+
+        img = img / 255.0
+        img = np.array([img])
+
+        if is_cnn is True:
+            return np.argmax(self.model_cnn.predict(img))
+        else:
+            return np.argmax(self.model_nn.predict(img))
+
+st.set_page_config(
+        page_title="Handwritten Digits Classifier",
+        layout = "wide"
+)
+
+st.title("Handwritten Digits Classifier")
 
 uploaded_file = st.file_uploader("Choose a PNG/JPG file", type=['png','jpg'], accept_multiple_files=False)
 if uploaded_file is not None:
-    filename = uploaded_file.name
-
-    c1,c2 = st.columns(2)
-
-    #st.write("filename:", filename)
-    #img = cv2.imread(uploaded_file)
+    
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
     img = cv2.imdecode(file_bytes, 1)
 
-    c1.write(img.shape)
+    clf = hw_digits_classifier()
+    
+    pp_img = clf.preprocess_image(img)
+
+    label_nn = clf.get_predicted_label(pp_img, is_cnn=False)
+    label_cnn = clf.get_predicted_label(pp_img, is_cnn=True)
+
+    c1,c2,c3 = st.columns(3)
+
+    c1.subheader("Original Image")
     c1.image(img)
 
-    gray = get_gray_scaled_image(img)
-    #st.write(gray.shape)
-    #st.image(gray)   
-
-    resized_img = get_resized_image(gray)  
-    #st.write(resized_img.shape)
-    #st.image(resized_img)
-
-    resized_img_flattened = resized_img.reshape(28*28)
-    resized_img_flattened_scaled = resized_img_flattened / 255
-
-    final_img = np.array([resized_img_flattened_scaled])
-    label = get_predicted_label(final_img)
-
-    c2.subheader(f"Predicted label: {label}")
+    c2.subheader("Preprocessed Image")
+    c2.image(pp_img)
+    
+    c3.subheader(f"Label Predicted by NN model: {label_nn}")
+    c3.subheader(f"Label Predicted by CNN model: {label_cnn}")
